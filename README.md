@@ -1,6 +1,6 @@
 # gifify
 
-gifify is a shell script for converting screen recordings into GIFs that can be embedded conveniently into places like Campfire chatrooms or GitHub issues and pull requests.
+gifify is a shell script for converting screen recordings into GIFs that can be conveniently embedded into a number of services.
 
 ## Installation
 
@@ -10,57 +10,63 @@ brew install gifify
 
 ## Usage
 
+```sh
+Usage:     gifify [options] input-file
+
+Options: (all optional)
+  -c value  Crop the input from the top left of the image, i.e. 640:480
+  -C        Conserve memory by writing frames to disk (slower)
+  -d value  Directon [normal, reverse, alternate]
+  -l value  Set loop extension to N iterations (default 0 - forever).
+  -o value  The output file
+  -p value  Scale the output, e.g. 320:240
+  -q value  Quality. The higher the quality, the longer it takes to generate
+  -r value  Set the output framerate (default 10)
+  -s value  Set the speed modifier (default 1)
+            NOTE: GIFs max out at 100fps depending on platform. For consistency,
+            ensure that FPSxSPEED is not > ~60!
+  -v        Print version
+```
+
+### Examples
+
 Given a file `recording.mov`:
 
-### Convert it into recording.mov.gif, and upload it to CloudApp:
+#### Convert it into example.mov.gif:
 
 ```sh
-gifify recording.mov
+gifify example.mov
 ```
 
-### Convert it into new_gif.gif, and upload it to CloudApp
+#### Convert it into `gif.gif`
 
 ```sh
-gifify -o new_gif recording.mov
+gifify -o gif.gif example.mov
 ```
 
-### Convert it, cropping the top left corner, and upload:
+#### Convert it, cropping the top left corner:
 
 ```sh
-gifify -c 100:100 recording.mov
+gifify -c 100:100 example.mov
 ```
 
-### Convert it, and do not upload it to CloudApp:
+#### Convert it, and output at 60 frames per second:
 
 ```sh
-gifify -n recording.mov
+gifify -r 60 example.mov
 ```
 
-### Convert it, do not upload, and output at 60 frames per second:
+#### Convert it, and output at 30 frames per second at 2x speed:
 
 ```sh
-gifify -r 60 -n recording.mov
+gifify -r 30 -s 2 example.mov
 ```
 
-### Convert it, do not upload, and output at 30 frames per second at 2x speed:
+#### Convert it, and output at 10 frames per second at 6x speed:
 
 ```sh
-gifify -r 30 -s 2 -n recording.mov
+gifify -s 6 example.mov
 ```
-
-### Convert it, do not upload, and output at 10 frames per second at 6x speed:
-
-```sh
-gifify -s 6 -n recording.mov
-```
-
-### Convert it, upload it, then destroy the gif and the original file:
-
-```sh
-gifify -x recording.mov
-```
-
-![http://f.cl.ly/items/1V0b3N4005372w261C0G/output.gif](http://f.cl.ly/items/1V0b3N4005372w261C0G/output.gif)
 
 ## Regarding framerates:
 
@@ -68,9 +74,6 @@ GIF renderers typically cap the framerate somewhere between 60 and 100 frames pe
 
 ## License
 
-MIT (See [LICENSE][3])
+MIT (See [LICENSE][1])
 
-
-[1]: https://raw.github.com/jclem/gifify/master/gifify.sh
-[2]: https://github.com/cloudapp/cloudapp.rb
-[3]: https://raw.github.com/jclem/gifify/master/LICENSE
+[1]: https://raw.github.com/jclem/gifify/master/LICENSE
