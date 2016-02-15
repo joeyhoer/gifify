@@ -164,10 +164,8 @@ if [ $useio -ne 1 ]; then
     # SLOWEST/BEST
     # Generate a palette to improve quality
     # May result in smaller files
+    # May result in "swarming"
     # @link http://blog.pkh.me/p/21-high-quality-gif-with-ffmpeg.html
-    # palette=$(mktemp --suffix=.png /tmp/palette.XXXXXXXXX)
-    palette=$(mktemp /tmp/palette.png)
-
     filter_gen="palettegen"
     filter_use="paletteuse"
     if [[ $filter ]]; then
@@ -175,12 +173,11 @@ if [ $useio -ne 1 ]; then
       filter_use="${filter}[x];[x][1:v]paletteuse"
     fi
 
-    ffmpeg -loglevel panic -i "$infile" -vf $filter_gen -y "$palette"
-    ffmpeg -loglevel panic -i "$infile" -i "$palette" \
+    palette=$(ffmpeg -loglevel panic -i "$infile" -vf $filter_gen -f image2 - | base64)
+    ffmpeg -loglevel panic -i "$infile" -i  <(base64 --decode <<< "$palette") \
       -lavfi $filter_use -r $fps -f gif - | \
       convert $direction_opt -layers Optimize -loop $loop -delay $delay - gif:- | \
       gifsicle --optimize=3 - -o "$outfile"
-    rm "$palette"
 
   elif [ $quality -le 0 ]; then
     # FAST/GOOD
@@ -209,22 +206,20 @@ if [ $useio -ne 1 ]; then
       loop="$(( $loop - 1 ))"
     fi
 
-    tmp_png=$(mktemp /tmp/tmp.png)
     [[ $filter ]] && filter_opt="-vf ${filter}"
-    ffmpeg -y -loglevel panic -i "$infile" $filter_opt -r $fps -loop $loop -f gif "$tmp_png"
+    data=$(ffmpeg -y -loglevel panic -i "$infile" $filter_opt -r $fps -loop $loop -f gif - | base64)
 
     if [[ $direction == "reverse" ]]; then
       # Reverse
-      gifsicle -U "$tmp_png" --delay=${delay} --optimize=3 "#-1-0" -o "$outfile"
+      gifsicle -U <(base64 --decode <<< "$data") --delay=${delay} --optimize=3 "#-1-0" -o "$outfile"
     elif [[ $direction == "alternate" ]]; then
       # Alternate
-      gifsicle -U "$tmp_png" "#-2-1" -o - | \
-        gifsicle --delay=${delay} --optimize=3 --append - "$tmp_png" -o "$outfile"
+      gifsicle -U <(base64 --decode <<< "$data") "#-2-1" -o - | \
+        gifsicle --delay=${delay} --optimize=3 <(base64 --decode <<< "$data") --append - -o "$outfile"
     else
       # Normal
-      gifsicle --delay=${delay} --optimize=3 "$tmp_png" -o "$outfile"
+      gifsicle --delay=${delay} --optimize=3 <(base64 --decode <<< "$data") -o "$outfile"
     fi
-    rm "$tmp_png"
 
   fi
 else
