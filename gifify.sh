@@ -10,7 +10,7 @@ VERSION='1.0.0'
 # @param 1  Seperator
 # @param 2+ Items to join
 ##
-function join { local IFS="$1"; shift; echo "$*"; }
+join_by() { local IFS="$1"; shift; echo "$*"; }
 
 ##
 # Check for a dependancy
@@ -39,7 +39,7 @@ error() {
 #
 # @param 1 exit code
 ##
-function printHelpAndExit {
+print_help() {
 cat <<EOF
 Usage:     $PROGNAME [options] input-file
 Version:   $VERSION
@@ -47,7 +47,7 @@ Version:   $VERSION
 Options: (all optional)
   -c value  Crop the input from the top left of the image, i.e. 640:480
   -C        Conserve memory by writing frames to disk (slower)
-  -d value  Directon [normal, reverse, alternate]
+  -d value  Directon (normal, reverse, alternate) [default: normal]
   -l value  Set loop extension to N iterations (default 0 - forever).
   -o value  The output file
   -p value  Scale the output, e.g. 320:240
@@ -88,7 +88,7 @@ while getopts "c:d:o:p:r:s:l:q:Chv" opt; do
     c) crop=$OPTARG;;
     C) useio=1;;
     d) direction=$OPTARG;;
-    h) printHelpAndExit 0;;
+    h) print_help 0;;
     l) loop=$OPTARG;;
     o) outfile=$OPTARG;;
     p) scale=$OPTARG;;
@@ -99,7 +99,7 @@ while getopts "c:d:o:p:r:s:l:q:Chv" opt; do
       echo "$VERSION"
       exit 0
       ;;
-    *) printHelpAndExit 1;;
+    *) print_help 1;;
   esac
 done
 
@@ -114,7 +114,7 @@ if [ -z "$outfile" ]; then
   outfile="${infile}.gif"
 fi
 
-if [ -z "$infile" ]; then printHelpAndExit 1; fi
+if [ -z "$infile" ]; then print_help 1; fi
 
 
 # Video filters (scan / crop)
@@ -129,7 +129,7 @@ if [ $scale ]; then
 fi
 
 if [ $scale ] || [ $crop ]; then
-  filter="$(join , $scale $crop)"
+  filter="$(join_by , $scale $crop)"
 fi
 
 # Direction options (for use with convert)
@@ -169,7 +169,7 @@ if [ $useio -ne 1 ]; then
     filter_gen="palettegen"
     filter_use="paletteuse"
     if [[ $filter ]]; then
-      filter_gen="$(join , ${filter} palettegen)"
+      filter_gen="$(join_by , ${filter} palettegen)"
       filter_use="${filter}[x];[x][1:v]paletteuse"
     fi
 
