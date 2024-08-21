@@ -14,9 +14,9 @@ brew install gifify
 Usage:     gifify [options] input-file
 
 Options: (all optional)
-  -c value  Crop the input from the top left of the image, i.e. 640:480
+  -c value  Crop the input
   -C        Conserve memory by writing frames to disk (slower)
-  -d value  Directon [normal, reverse, alternate]
+  -d value  Directon (normal, reverse, alternate) [default: normal]
   -l value  Set loop extension to N iterations (default 0 - forever).
   -o value  The output file
   -p value  Scale the output, e.g. 320:240
@@ -25,6 +25,8 @@ Options: (all optional)
   -s value  Set the speed modifier (default 1)
             NOTE: GIFs max out at 100fps depending on platform. For consistency,
             ensure that FPSxSPEED is not > ~60!
+  -S value  Set start time (default 0)
+  -t value  Set duration (default full video)
   -v        Print version
 ```
 

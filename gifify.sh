@@ -45,7 +45,7 @@ Usage:     $PROGNAME [options] input-file
 Version:   $VERSION
 
 Options: (all optional)
-  -c value  Crop the input from the top left of the image, i.e. 640:480
+  -c value  Crop the input
   -C        Conserve memory by writing frames to disk (slower)
   -d value  Directon (normal, reverse, alternate) [default: normal]
   -l value  Set loop extension to N iterations (default 0 - forever).
@@ -56,6 +56,8 @@ Options: (all optional)
   -s value  Set the speed modifier (default 1)
             NOTE: GIFs max out at 100fps depending on platform. For consistency,
             ensure that FPSxSPEED is not > ~60!
+  -S value  Set start time (default 0)
+  -t value  Set duration (default full video)
   -v        Print version
 
 Example:
@@ -68,7 +70,7 @@ exit $1
 
 # Check dependacies
 dependancy ffmpeg
-dependancy convert
+dependancy magick
 dependancy gifsicle
 
 # Initialize variables
@@ -81,9 +83,11 @@ OPTERR=0
 filter=
 scale=
 crop=
+start=
+duration=
 
 # Get options
-while getopts "c:d:o:p:r:s:l:q:Chv" opt; do
+while getopts "c:d:o:p:r:s:S:t:l:q:Chv" opt; do
   case $opt in
     c) crop=$OPTARG;;
     C) useio=1;;
@@ -95,6 +99,8 @@ while getopts "c:d:o:p:r:s:l:q:Chv" opt; do
     q) quality=$OPTARG;;
     r) fps=$OPTARG;;
     s) speed=$OPTARG;;
+    S) start=$OPTARG;;
+    t) duration=$OPTARG;;
     v)
       echo "$VERSION"
       exit 0
@@ -119,7 +125,7 @@ if [ -z "$infile" ]; then print_help 1; fi
 
 # Video filters (scan / crop)
 if [ $crop ]; then
-  crop="crop=${crop}:0:0"
+  crop="crop=${crop}"
 fi
 
 # Add scale filter
@@ -128,11 +134,11 @@ if [ $scale ]; then
   scale="scale=${scale}:flags=lanczos"
 fi
 
-if [ $scale ] || [ $crop ]; then
-  filter="$(join_by , $scale $crop)"
+if [ $crop ] || [ $scale ]; then
+  filter="$(join_by , $crop $scale)"
 fi
 
-# Direction options (for use with convert)
+# Direction options (for use with magick)
 direction_opt=
 if [[ $direction == "reverse" ]]; then
   direction_opt="-coalesce -reverse"
@@ -140,8 +146,20 @@ elif [[ $direction == "alternate" ]]; then
   direction_opt="-coalesce -duplicate 1,-2-1"
 fi
 
+# Duration opt (for use with ffmpeg)
+start_opt=
+if [ $start ]; then
+  start_opt="-ss ${start}"
+fi
+
+# Duration opt (for use with ffmpeg)
+duration_opt=
+if [ $duration ]; then
+  duration_opt="-t ${duration}"
+fi
+
 # -delay uses time per tick (a tick defaults to 1/100 of a second)
-# so 60fps == -delay 1.666666 which is rounded to 2 because convert
+# so 60fps == -delay 1.666666 which is rounded to 2 because magick
 # apparently stores this as an integer. To animate faster than 60fps,
 # you must drop frames, meaning you must specify a lower -r. This is
 # due to the GIF format as well as GIF renderers that cap frame delays
@@ -152,12 +170,12 @@ delay=$(bc -l <<< "100/$fps/$speed")
 if [ $useio -ne 1 ]; then
   if [ $quality == 1 ]; then
     # SLOW/BETTER
-    # Use images, piped through convert to generate output
+    # Use images, piped through magick to generate output
     # Dithering will likely improve quality at the expense of filesize
-    # `convert -list dither` to get a list of supported dither methods
+    # `magick -list dither` to get a list of supported dither methods
     [[ $filter ]] && filter_opt="-vf ${filter}"
-    ffmpeg -loglevel panic -i "$infile" $filter_opt -r $fps -f image2pipe -vcodec ppm - | \
-      convert $direction_opt -layers Optimize -loop $loop -delay $delay - gif:- | \
+    ffmpeg -loglevel panic $start_opt $duration_opt -i "$infile" $filter_opt -r $fps -f image2pipe -vcodec ppm - | \
+      magick - $direction_opt -layers Optimize -loop $loop -delay $delay gif:- | \
       gifsicle --optimize=3 - -o "$outfile"
 
   elif [ $quality -ge 2 ]; then
@@ -173,10 +191,10 @@ if [ $useio -ne 1 ]; then
       filter_use="${filter}[x];[x][1:v]paletteuse"
     fi
 
-    palette=$(ffmpeg -loglevel panic -i "$infile" -vf $filter_gen -f image2 - | base64)
-    ffmpeg -loglevel panic -i "$infile" -i  <(base64 --decode <<< "$palette") \
+    palette=$(ffmpeg -loglevel panic $start_opt $duration_opt -i "$infile" -vf $filter_gen -f image2 - | base64)
+    ffmpeg -loglevel panic $start_opt $duration_opt -i "$infile" -i  <(base64 --decode <<< "$palette") \
       -lavfi $filter_use -r $fps -f gif - | \
-      convert $direction_opt -layers Optimize -loop $loop -delay $delay - gif:- | \
+      magick - $direction_opt -layers Optimize -loop $loop -delay $delay gif:- | \
       gifsicle --optimize=3 - -o "$outfile"
 
   elif [ $quality -le 0 ]; then
@@ -188,7 +206,7 @@ if [ $useio -ne 1 ]; then
 
     # Looping from 1 to 65535 with:
     # program    infinite   iterations   no loop
-    # convert    0          N            1
+    # magick     0          N            1
     # ffmpeg     0          N+1          -1
     # gifsicle   0          N+1          --no-loopcount
 
@@ -207,7 +225,7 @@ if [ $useio -ne 1 ]; then
     fi
 
     [[ $filter ]] && filter_opt="-vf ${filter}"
-    data=$(ffmpeg -y -loglevel panic -i "$infile" $filter_opt -r $fps -loop $loop -f gif - | base64)
+    data=$(ffmpeg -y -loglevel panic $start_opt $duration_opt -i "$infile" $filter_opt -r $fps -loop $loop -f gif - | base64)
 
     if [[ $direction == "reverse" ]]; then
       # Reverse
@@ -225,8 +243,8 @@ if [ $useio -ne 1 ]; then
 else
   [[ $filter ]] && filter_opt="-vf ${filter}"
   temp=$(mktemp "/tmp/${PROGNAME}.XXXXXXXXX")
-  ffmpeg -loglevel panic -i "$infile" $filter_opt -r $fps -f image2pipe -vcodec ppm - >> "$temp"
-  convert $direction_opt -layers Optimize -delay $delay -loop $loop "$temp" gif:- | \
+  ffmpeg -loglevel panic $start_opt $duration_opt -i "$infile" $filter_opt -r $fps -f image2pipe -vcodec ppm - >> "$temp"
+  magick $direction_opt -layers Optimize -delay $delay -loop $loop "$temp" gif:- | \
     gifsicle --optimize=3 - -o "$outfile"
   rm "$temp"
 fi
